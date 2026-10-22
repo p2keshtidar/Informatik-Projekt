@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: girokonto-db
+    environment:
+      POSTGRES_DB: girokonto
+      POSTGRES_USER: girokonto
+      POSTGRES_PASSWORD: girokonto
+    ports:
+      - "5436:5432"
+    volumes:
+      - girokonto-data:/var/lib/postgresql/data
+
+volumes:
+  girokonto-data:
