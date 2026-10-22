@@ -1,0 +1,24 @@
+# Backend
+backend/build/
+backend/.gradle/
+backend/out/
+*.class
+
+# Flutter
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/ios/Pods/
+app/ios/.symlinks/
+app/android/.gradle/
+app/android/local.properties
+app/coverage/
+
+# IDEs und System
+.idea/
+*.iml
+.vscode/
+.DS_Store
+*.log
+.env
