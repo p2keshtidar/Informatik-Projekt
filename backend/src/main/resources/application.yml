@@ -2,7 +2,7 @@ spring:
   application:
     name: girokonto
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5436/girokonto}
+    url: ${DB_URL:jdbc:postgresql://localhost:5438/girokonto}
     username: ${DB_USER:girokonto}
     password: ${DB_PASSWORD:girokonto}
   jpa:
