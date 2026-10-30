@@ -7,8 +7,12 @@ spring:
     password: ${DB_PASSWORD:girokonto}
   jpa:
     hibernate:
-      ddl-auto: none        # Tabellen legt nur Flyway an, nie Hibernate
+      ddl-auto: validate    # Schema kommt nur aus Flyway, Hibernate prüft nur
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
   flyway:
     enabled: true
 
