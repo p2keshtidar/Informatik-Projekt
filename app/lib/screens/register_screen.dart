@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
-import 'accounts_screen.dart';
+import '../util/password_rules.dart';
+import '../widgets/password_checklist.dart';
+import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -31,6 +33,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  List<String> get _personal => personalParts(_email.text, _firstName.text, _lastName.text);
+
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -53,8 +57,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
     try {
-      final user = await _api.register(
-        email: _email.text.trim(),
+      final email = _email.text.trim();
+      await _api.register(
+        email: email,
         password: _password.text,
         firstName: _firstName.text.trim(),
         lastName: _lastName.text.trim(),
@@ -62,9 +67,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         birthDate: _birthDate!,
       );
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => AccountsScreen(user: user)),
-        (_) => false,
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => VerifyEmailScreen(email: email)),
       );
     } catch (e) {
       setState(() => _error = e.toString());
@@ -94,17 +98,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _firstName,
                     decoration: const InputDecoration(labelText: 'Vorname'),
                     validator: _required,
+                    onChanged: (_) => setState(() {}),
                   ),
                   TextFormField(
                     controller: _lastName,
                     decoration: const InputDecoration(labelText: 'Nachname'),
                     validator: _required,
+                    onChanged: (_) => setState(() {}),
                   ),
                   TextFormField(
                     controller: _email,
                     decoration: const InputDecoration(labelText: 'E-Mail'),
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) => v == null || !v.contains('@') ? 'E-Mail eingeben' : null,
+                    onChanged: (_) => setState(() {}),
                   ),
                   TextFormField(
                     controller: _phone,
@@ -114,10 +121,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   TextFormField(
                     controller: _password,
-                    decoration: const InputDecoration(labelText: 'Passwort (mind. 8 Zeichen)'),
+                    decoration: const InputDecoration(labelText: 'Passwort'),
                     obscureText: true,
-                    validator: (v) => v == null || v.length < 8 ? 'Mindestens 8 Zeichen' : null,
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) =>
+                        isPasswordOk(v ?? '', _personal) ? null : 'Passwort erfüllt nicht alle Regeln',
                   ),
+                  const SizedBox(height: 8),
+                  PasswordChecklist(password: _password.text, personal: _personal),
                   const SizedBox(height: 16),
                   OutlinedButton(
                     onPressed: _pickBirthDate,
@@ -132,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: _loading ? null : _register,
-                    child: Text(_loading ? 'Bitte warten …' : 'Konto eröffnen'),
+                    child: Text(_loading ? 'Bitte warten …' : 'Weiter'),
                   ),
                 ],
               ),

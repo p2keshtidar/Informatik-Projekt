@@ -31,6 +31,11 @@ public class AccountService {
     }
 
     @Transactional(readOnly = true)
+    public boolean hasMainAccount(Long userId) {
+        return accounts.existsByOwnerIdAndType(userId, AccountType.MAIN);
+    }
+
+    @Transactional(readOnly = true)
     public List<AccountDto> accountsOf(Long userId) {
         if (!users.existsById(userId)) {
             throw ApiException.notFound("Nutzer nicht gefunden");

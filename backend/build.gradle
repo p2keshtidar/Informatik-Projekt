@@ -22,6 +22,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'   // Datenbankzugriff (Hibernate)
     implementation 'org.springframework.boot:spring-boot-starter-validation' // @NotNull, @Size … an Eingaben
     implementation 'org.springframework.security:spring-security-crypto'      // BCrypt für Passwörter
+    implementation 'org.springframework.boot:spring-boot-starter-mail'       // Codes per E-Mail (Mailpit)
     implementation 'org.flywaydb:flyway-core'                                // Datenbank-Migrationen
     implementation 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'                                  // JDBC-Treiber

@@ -6,8 +6,13 @@ import '../models/account.dart';
 import '../models/user.dart';
 
 class ApiException implements Exception {
+  final int statusCode;
   final String message;
-  const ApiException(this.message);
+  const ApiException(this.statusCode, this.message);
+
+  // 428: Code per Mail nötig, 403: E-Mail noch nicht bestätigt
+  bool get codeRequired => statusCode == 428;
+  bool get emailNotVerified => statusCode == 403;
 
   @override
   String toString() => message;
@@ -22,7 +27,8 @@ class ApiClient {
 
   ApiClient({http.Client? client}) : _http = client ?? http.Client();
 
-  Future<User> register({
+  // Schritt 1: legt den Nutzer an, der Server schickt einen Code per Mail
+  Future<void> register({
     required String email,
     required String password,
     required String firstName,
@@ -30,7 +36,7 @@ class ApiClient {
     required String phone,
     required DateTime birthDate,
   }) async {
-    final json = await _post('/api/auth/register', {
+    await _post('/api/auth/register', {
       'email': email,
       'password': password,
       'firstName': firstName,
@@ -38,16 +44,30 @@ class ApiClient {
       'phone': phone,
       'birthDate': birthDate.toIso8601String().substring(0, 10),
     });
-    return User.fromJson(json);
   }
 
-  Future<User> login(String email, String password) async {
+  // Schritt 2: Code aus der Mail, danach gibt es das Girokonto
+  Future<User> verifyEmail(String email, String code) async {
+    final json = await _post('/api/auth/verify-email', {'email': email, 'code': code});
+    return User.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<void> resendCode(String email) => _post('/api/auth/resend-code', {'email': email});
+
+  // ohne code: Server schickt Code und antwortet 428, mit code: angemeldet
+  Future<User> login(String email, String password, {String? code}) async {
     final json = await _post('/api/auth/login', {
       'email': email,
       'password': password,
+      if (code != null) 'code': code,
     });
-    return User.fromJson(json);
+    return User.fromJson(json as Map<String, dynamic>);
   }
+
+  Future<void> forgotPassword(String email) => _post('/api/auth/password/forgot', {'email': email});
+
+  Future<void> resetPassword(String email, String code, String newPassword) =>
+      _post('/api/auth/password/reset', {'email': email, 'code': code, 'newPassword': newPassword});
 
   Future<List<Account>> accounts(int userId) async {
     final res = await _http.get(Uri.parse('$baseUrl/api/users/$userId/accounts'));
@@ -57,13 +77,13 @@ class ApiClient {
         .toList();
   }
 
-  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> data) async {
+  Future<dynamic> _post(String path, Map<String, dynamic> data) async {
     final res = await _http.post(
       Uri.parse('$baseUrl$path'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(data),
     );
-    return _decode(res) as Map<String, dynamic>;
+    return _decode(res);
   }
 
   // Fehler kommen vom Server immer im gleichen Format (ApiError)
@@ -79,6 +99,6 @@ class ApiClient {
         message += ': ${fields.entries.map((e) => '${e.key} ${e.value}').join(', ')}';
       }
     }
-    throw ApiException(message);
+    throw ApiException(res.statusCode, message);
   }
 }
