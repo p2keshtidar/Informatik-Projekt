@@ -1,30 +1,24 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:girokonto_app/main.dart';
+import 'package:girokonto_app/util/money.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('Cent werden als Euro angezeigt', () {
+    expect(formatCents(0), '0,00 €');
+    expect(formatCents(123456), '1.234,56 €');
+    expect(formatCents(-500), '-5,00 €');
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  test('IBAN wird in Vierergruppen angezeigt', () {
+    expect(formatIban('DE89370400440532013000'), 'DE89 3704 0044 0532 0130 00');
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('Startseite zeigt die Anmeldung', (tester) async {
+    await tester.pumpWidget(const GirokontoApp());
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('PHD Kontor'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Anmelden'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNWidgets(2));
   });
 }
