@@ -9,6 +9,14 @@ Smartphone-Konto (Projekt Informatik, FRA-UAS). Backend: Spring Boot + PostgreSQ
 2. Backend: `cd backend && ./gradlew bootRun`
 3. App: `cd app && flutter pub get && flutter run -d chrome`
 
+## Prototyp (nur Aufbau, ohne Funktion)
+
+Zeigt alle geplanten Bereiche der App als Schema, ohne Server und ohne Daten:
+
+```bash
+cd app && flutter run -d chrome -t lib/prototype/main_prototype.dart
+```
+
 ## Schnittstellen
 
 | Methode | Pfad | Beschreibung |
