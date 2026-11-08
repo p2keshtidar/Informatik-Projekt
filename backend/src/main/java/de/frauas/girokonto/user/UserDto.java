@@ -11,11 +11,10 @@ public record UserDto(
         String phone,
         LocalDate birthDate,
         Role role,
-        String language,
         boolean emailVerified
 ) {
     public static UserDto from(AppUser u) {
         return new UserDto(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), u.getPhone(),
-                u.getBirthDate(), u.getRole(), u.getLanguage(), u.isEmailVerified());
+                u.getBirthDate(), u.getRole(), u.isEmailVerified());
     }
 }

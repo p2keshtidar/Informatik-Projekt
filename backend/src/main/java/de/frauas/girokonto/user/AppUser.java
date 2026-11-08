@@ -43,8 +43,6 @@ public class AppUser {
     @Column(nullable = false)
     private Role role = Role.USER;
 
-    private String language;
-
     @Column(name = "token_version", nullable = false)
     private int tokenVersion;
 
@@ -56,9 +54,6 @@ public class AppUser {
 
     @Column(name = "email_verified_at")
     private Instant emailVerifiedAt;
-
-    @Column(name = "health_score_consent_at")
-    private Instant healthScoreConsentAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -104,12 +99,10 @@ public class AppUser {
     public String getPhone() { return phone; }
     public LocalDate getBirthDate() { return birthDate; }
     public Role getRole() { return role; }
-    public String getLanguage() { return language; }
     public int getTokenVersion() { return tokenVersion; }
     public int getFailedLogins() { return failedLogins; }
     public Instant getLockedUntil() { return lockedUntil; }
     public Instant getEmailVerifiedAt() { return emailVerifiedAt; }
-    public Instant getHealthScoreConsentAt() { return healthScoreConsentAt; }
     public Instant getCreatedAt() { return createdAt; }
 
     public void setEmail(String email) { this.email = email; }
@@ -118,10 +111,8 @@ public class AppUser {
     public void setLastName(String lastName) { this.lastName = lastName; }
     public void setPhone(String phone) { this.phone = phone; }
     public void setRole(Role role) { this.role = role; }
-    public void setLanguage(String language) { this.language = language; }
     public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }
     public void setFailedLogins(int failedLogins) { this.failedLogins = failedLogins; }
     public void setLockedUntil(Instant lockedUntil) { this.lockedUntil = lockedUntil; }
     public void setEmailVerifiedAt(Instant emailVerifiedAt) { this.emailVerifiedAt = emailVerifiedAt; }
-    public void setHealthScoreConsentAt(Instant healthScoreConsentAt) { this.healthScoreConsentAt = healthScoreConsentAt; }
 }
