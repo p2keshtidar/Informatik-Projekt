@@ -22,15 +22,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
   @override
   void initState() {
     super.initState();
-    _accounts = _api.accounts(widget.user.id);
+    _accounts = _api.accounts();
   }
 
   Future<void> _reload() async {
-    setState(() => _accounts = _api.accounts(widget.user.id));
+    setState(() => _accounts = _api.accounts());
     await _accounts;
   }
 
   void _logout() {
+    ApiClient.clearTokens();
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,
