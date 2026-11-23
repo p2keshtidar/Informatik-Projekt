@@ -1,7 +1,8 @@
 package de.frauas.girokonto.account;
 
+import de.frauas.girokonto.auth.AuthUser;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -15,9 +16,9 @@ public class AccountController {
         this.accountService = accountService;
     }
 
-    // TODO: Nutzer später aus dem JWT lesen statt aus der URL
-    @GetMapping("/api/users/{userId}/accounts")
-    public List<AccountDto> accounts(@PathVariable Long userId) {
-        return accountService.accountsOf(userId);
+    // Konten des angemeldeten Nutzers. Wer das ist, steht im Access-Token, nicht in der URL.
+    @GetMapping("/api/accounts")
+    public List<AccountDto> accounts(@AuthenticationPrincipal AuthUser me) {
+        return accountService.accountsOf(me.id());
     }
 }
