@@ -1,5 +1,6 @@
 package de.frauas.girokonto.auth;
 
+import de.frauas.girokonto.account.Account;
 import de.frauas.girokonto.account.AccountService;
 import de.frauas.girokonto.common.ApiException;
 import de.frauas.girokonto.config.SecurityProperties;
@@ -94,7 +95,8 @@ public class AuthService {
         user.setEmailVerifiedAt(Instant.now(clock));
         // Nutzer aus der Zeit vor der E-Mail-Bestätigung haben schon ein Girokonto
         if (!accountService.hasMainAccount(user.getId())) {
-            accountService.openMainAccount(user);
+            Account mainAccount = accountService.openMainAccount(user);
+            accountService.bookStartCredit(mainAccount);   // 10.000,00 € Startguthaben, nur für ein neues Girokonto
         }
         return UserDto.from(user);
     }
