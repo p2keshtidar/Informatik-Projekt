@@ -4,13 +4,23 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
     List<Account> findByOwnerIdOrderById(Long ownerId);
 
     boolean existsByOwnerIdAndType(Long ownerId, AccountType type);
+
+    // z. B. das System-Konto für das Startguthaben (BookingService.OPENING_ACCOUNT_NAME)
+    Optional<Account> findFirstByTypeAndName(AccountType type, String name);
+
+    // Sperrt die Konten bis zum Ende der Transaktion, nach ID aufsteigend (keine Deadlocks).
+    // Gibt die gefundenen IDs zurück; fehlt eine, gibt es das Konto nicht.
+    @Query(value = "SELECT id FROM account WHERE id IN (:ids) ORDER BY id FOR UPDATE", nativeQuery = true)
+    List<Long> lockByIdsOrderById(@Param("ids") Collection<Long> ids);
 
     @Query(value = "SELECT nextval('account_number_seq')", nativeQuery = true)
     long nextAccountNumber();
