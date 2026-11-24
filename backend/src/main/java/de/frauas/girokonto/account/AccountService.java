@@ -40,6 +40,18 @@ public class AccountService {
         bookingService.bookStartCredit(mainAccount.getOwnerId(), mainAccount.getId());
     }
 
+    // Prüft, dass das Konto dem Nutzer gehört: unbekannt → 404, fremdes Konto → 403.
+    // Für alles, was mit einer accountId aus der URL arbeitet (Umsätze, später Überweisungen).
+    @Transactional(readOnly = true)
+    public Account requireOwnAccount(Long userId, Long accountId) {
+        Account account = accounts.findById(accountId)
+                .orElseThrow(() -> ApiException.notFound("Konto nicht gefunden"));
+        if (!userId.equals(account.getOwnerId())) {
+            throw ApiException.forbidden("Das ist nicht dein Konto");
+        }
+        return account;
+    }
+
     @Transactional(readOnly = true)
     public boolean hasMainAccount(Long userId) {
         return accounts.existsByOwnerIdAndType(userId, AccountType.MAIN);
