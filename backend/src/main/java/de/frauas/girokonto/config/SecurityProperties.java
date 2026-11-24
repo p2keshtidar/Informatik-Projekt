@@ -2,7 +2,7 @@ package de.frauas.girokonto.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-// Werte aus application.yml (app.mail.* und app.login.*)
+// Werte aus application.yml (app.mail.*, app.login.* und app.token.*)
 public final class SecurityProperties {
 
     private SecurityProperties() {
@@ -14,5 +14,9 @@ public final class SecurityProperties {
 
     @ConfigurationProperties(prefix = "app.login")
     public record Login(int maxFailedAttempts, int lockMinutes) {
+    }
+
+    @ConfigurationProperties(prefix = "app.token")
+    public record Token(String secret, int accessMinutes, int refreshDays) {
     }
 }

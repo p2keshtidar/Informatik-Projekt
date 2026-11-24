@@ -1,5 +1,6 @@
 package de.frauas.girokonto.account;
 
+import de.frauas.girokonto.booking.BookingService;
 import de.frauas.girokonto.common.ApiException;
 import de.frauas.girokonto.common.Iban;
 import de.frauas.girokonto.user.AppUser;
@@ -14,10 +15,12 @@ public class AccountService {
 
     private final AccountRepository accounts;
     private final AppUserRepository users;
+    private final BookingService bookingService;
 
-    public AccountService(AccountRepository accounts, AppUserRepository users) {
+    public AccountService(AccountRepository accounts, AppUserRepository users, BookingService bookingService) {
         this.accounts = accounts;
         this.users = users;
+        this.bookingService = bookingService;
     }
 
     // Jeder Nutzer bekommt genau ein Girokonto
@@ -28,6 +31,13 @@ public class AccountService {
         }
         String iban = Iban.forAccountNumber(accounts.nextAccountNumber());
         return accounts.save(new Account(user.getId(), AccountType.MAIN, "Girokonto", iban));
+    }
+
+    // Startguthaben (10.000,00 €) auf ein gerade eröffnetes Girokonto, in derselben Transaktion wie die Eröffnung.
+    // Der Key "opening-<userId>" verhindert, dass es doppelt gebucht wird.
+    @Transactional
+    public void bookStartCredit(Account mainAccount) {
+        bookingService.bookStartCredit(mainAccount.getOwnerId(), mainAccount.getId());
     }
 
     @Transactional(readOnly = true)

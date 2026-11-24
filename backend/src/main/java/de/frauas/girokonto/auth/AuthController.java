@@ -1,7 +1,7 @@
 package de.frauas.girokonto.auth;
 
-import de.frauas.girokonto.user.UserDto;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,7 +27,7 @@ public class AuthController {
     }
 
     @PostMapping("/verify-email")
-    public UserDto verifyEmail(@Valid @RequestBody CodeRequests.Verify req) {
+    public AuthResponse verifyEmail(@Valid @RequestBody CodeRequests.Verify req) {
         return authService.verifyEmail(req.email(), req.code());
     }
 
@@ -38,8 +38,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public UserDto login(@Valid @RequestBody LoginRequest req) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest req) {
         return authService.login(req);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshRequest req) {
+        return authService.refresh(req.refreshToken());
     }
 
     @PostMapping("/password/forgot")
@@ -52,5 +57,8 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resetPassword(@Valid @RequestBody CodeRequests.ResetPassword req) {
         authService.resetPassword(req);
+    }
+
+    public record RefreshRequest(@NotBlank String refreshToken) {
     }
 }

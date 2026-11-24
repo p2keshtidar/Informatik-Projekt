@@ -1,5 +1,6 @@
 package de.frauas.girokonto.auth;
 
+import de.frauas.girokonto.account.Account;
 import de.frauas.girokonto.account.AccountService;
 import de.frauas.girokonto.common.ApiException;
 import de.frauas.girokonto.config.SecurityProperties;
@@ -28,15 +29,18 @@ public class AuthService {
     private final AppUserRepository users;
     private final AccountService accountService;
     private final MailCodeService mailCodes;
+    private final TokenService tokens;
     private final PasswordEncoder passwordEncoder;
     private final SecurityProperties.Login loginProps;
     private final Clock clock;
 
     public AuthService(AppUserRepository users, AccountService accountService, MailCodeService mailCodes,
-                       PasswordEncoder passwordEncoder, SecurityProperties.Login loginProps, Clock clock) {
+                       TokenService tokens, PasswordEncoder passwordEncoder, SecurityProperties.Login loginProps,
+                       Clock clock) {
         this.users = users;
         this.accountService = accountService;
         this.mailCodes = mailCodes;
+        this.tokens = tokens;
         this.passwordEncoder = passwordEncoder;
         this.loginProps = loginProps;
         this.clock = clock;
@@ -81,9 +85,10 @@ public class AuthService {
         return new CodeRequests.CodeSent("VERIFICATION_REQUIRED", email);
     }
 
-    // Schritt 2: Code aus der Mail → E-Mail bestätigt, erst jetzt wird das Girokonto eröffnet (falls noch keins da)
+    // Schritt 2: Code aus der Mail → E-Mail bestätigt, erst jetzt wird das Girokonto eröffnet (falls noch keins da).
+    // Danach ist der Nutzer direkt angemeldet.
     @Transactional
-    public UserDto verifyEmail(String email, String code) {
+    public AuthResponse verifyEmail(String email, String code) {
         AppUser user = users.findByEmailIgnoreCase(normalizeEmail(email)).orElseThrow(AuthService::codeInvalid);
         if (user.isEmailVerified()) {
             throw ApiException.conflict("Diese E-Mail ist schon bestätigt. Bitte anmelden.");
@@ -94,9 +99,10 @@ public class AuthService {
         user.setEmailVerifiedAt(Instant.now(clock));
         // Nutzer aus der Zeit vor der E-Mail-Bestätigung haben schon ein Girokonto
         if (!accountService.hasMainAccount(user.getId())) {
-            accountService.openMainAccount(user);
+            Account mainAccount = accountService.openMainAccount(user);
+            accountService.bookStartCredit(mainAccount);   // 10.000,00 € Startguthaben, nur für ein neues Girokonto
         }
-        return UserDto.from(user);
+        return issueTokens(user);
     }
 
     // Antwortet immer gleich, damit niemand herausfinden kann, welche E-Mails registriert sind
@@ -110,7 +116,7 @@ public class AuthService {
     // Anmeldung in zwei Schritten: 1. E-Mail + Passwort → Code per Mail (428), 2. mit Code → angemeldet.
     // noRollbackFor: der Fehlversuch-Zähler soll auch bei einer Fehlerantwort gespeichert werden.
     @Transactional(noRollbackFor = ApiException.class)
-    public UserDto login(LoginRequest req) {
+    public AuthResponse login(LoginRequest req) {
         AppUser user = users.findByEmailIgnoreCase(normalizeEmail(req.email())).orElseThrow(AuthService::wrongLogin);
         Instant now = Instant.now(clock);
 
@@ -135,7 +141,18 @@ public class AuthService {
         }
         user.setFailedLogins(0);
         user.setLockedUntil(null);
-        return UserDto.from(user);
+        return issueTokens(user);
+    }
+
+    // Neuer Access-Token mit dem Refresh-Token. Der alte Refresh-Token ist danach verbraucht,
+    // die App bekommt einen neuen.
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthResponse refresh(String refreshToken) {
+        Long userId = tokens.useRefreshToken(refreshToken);
+        AppUser user = users.findById(userId)
+                .filter(AppUser::isEmailVerified)
+                .orElseThrow(() -> ApiException.unauthorized("Die Anmeldung ist abgelaufen. Bitte erneut anmelden."));
+        return issueTokens(user);
     }
 
     @Transactional
@@ -155,7 +172,8 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
         user.setFailedLogins(0);
         user.setLockedUntil(null);
-        user.setTokenVersion(user.getTokenVersion() + 1);   // später: alte Tokens werden ungültig
+        user.setTokenVersion(user.getTokenVersion() + 1);   // alte Access-Tokens werden ungültig
+        tokens.revokeAll(user.getId());                     // alle Anmeldungen beenden
         mailCodes.notice(user, "PHD Kontor: Passwort geändert",
                 "dein Passwort wurde gerade geändert. Warst du das nicht, melde dich bitte sofort bei uns.");
     }
@@ -171,6 +189,10 @@ public class AuthService {
                     + loginProps.lockMinutes() + " Minuten gesperrt.");
         }
         return error;
+    }
+
+    private AuthResponse issueTokens(AppUser user) {
+        return new AuthResponse(tokens.createAccessToken(user), tokens.createRefreshToken(user), UserDto.from(user));
     }
 
     private static String normalizeEmail(String email) {

@@ -15,6 +15,9 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+  autoconfigure:
+    # Anmeldung läuft über eigene Tokens, kein Spring-Standardnutzer
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -37,3 +40,8 @@ app:
   login:
     max-failed-attempts: 5
     lock-minutes: 5
+  token:
+    # Schlüssel für die Signatur der Access-Tokens (mind. 32 Zeichen). Im Betrieb über TOKEN_SECRET setzen!
+    secret: ${TOKEN_SECRET:nur-fuer-die-entwicklung-bitte-aendern-mindestens-32-zeichen}
+    access-minutes: 15
+    refresh-days: 30
