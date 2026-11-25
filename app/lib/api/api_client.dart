@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/account.dart';
 import '../models/user.dart';
+import 'token_store.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -23,19 +24,22 @@ class ApiClient {
   static const baseUrl =
       String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8080');
 
-  // Tokens der aktuellen Anmeldung, gemeinsam für alle Screens (nur im Speicher,
-  // dauerhaftes Speichern kommt mit token_store.dart)
-  static String? _accessToken;
-  static String? _refreshToken;
+  // Wird aufgerufen, wenn die Anmeldung abgelaufen ist (auch der Refresh klappt nicht mehr).
+  // main.dart setzt hier "zurück zum Login".
+  static void Function()? onSessionExpired;
 
-  static bool get isLoggedIn => _accessToken != null;
+  // Läuft gerade ein Refresh, warten alle anderen Requests darauf. Der Server macht den
+  // alten Refresh-Token beim Erneuern ungültig, zwei gleichzeitige Refreshs würden also scheitern.
+  static Future<bool>? _refreshing;
 
-  static void clearTokens() {
-    _accessToken = null;
-    _refreshToken = null;
-  }
+  // Tokens liegen in token_store.dart, gemeinsam für alle Screens
+  static Future<bool> isLoggedIn() async =>
+      await TokenStore.instance.readAccessToken() != null;
+
+  static Future<void> clearTokens() => TokenStore.instance.clear();
 
   final http.Client _http;
+  final TokenStore _tokens = TokenStore.instance;
 
   ApiClient({http.Client? client}) : _http = client ?? http.Client();
 
@@ -58,10 +62,10 @@ class ApiClient {
     });
   }
 
-  // Schritt 2: Code aus der Mail, danach gibt es das Girokonto
+  // Schritt 2: Code aus der Mail, danach gibt es das Girokonto und man ist direkt angemeldet
   Future<User> verifyEmail(String email, String code) async {
     final json = await _post('/api/auth/verify-email', {'email': email, 'code': code});
-    return _loggedIn(json as Map<String, dynamic>);
+    return _loggedIn(json);
   }
 
   Future<void> resendCode(String email) => _post('/api/auth/resend-code', {'email': email});
@@ -73,7 +77,7 @@ class ApiClient {
       'password': password,
       if (code != null) 'code': code,
     });
-    return _loggedIn(json as Map<String, dynamic>);
+    return _loggedIn(json);
   }
 
   Future<void> forgotPassword(String email) => _post('/api/auth/password/forgot', {'email': email});
@@ -89,46 +93,58 @@ class ApiClient {
         .toList();
   }
 
-  // Antwort von Login und Bestätigung: { accessToken, refreshToken, user }
-  User _loggedIn(Map<String, dynamic> json) {
-    _accessToken = json['accessToken'] as String;
-    _refreshToken = json['refreshToken'] as String;
-    return User.fromJson(json['user'] as Map<String, dynamic>);
+  // Antwort von Login, Bestätigung und Refresh: { accessToken, refreshToken, user }
+  Future<User> _loggedIn(dynamic json) async {
+    final map = json as Map<String, dynamic>;
+    await _tokens.save(map['accessToken'] as String, map['refreshToken'] as String);
+    return User.fromJson(map['user'] as Map<String, dynamic>);
   }
 
-  // GET mit Token. Ist der Access-Token abgelaufen (401), einmal mit dem Refresh-Token erneuern.
-  Future<dynamic> _get(String path) async {
-    var res = await _http.get(Uri.parse('$baseUrl$path'), headers: _authHeaders());
-    if (res.statusCode == 401 && await _refresh()) {
-      res = await _http.get(Uri.parse('$baseUrl$path'), headers: _authHeaders());
+  Future<dynamic> _get(String path) =>
+      _send(path, () async => _http.get(_uri(path), headers: await _headers()));
+
+  Future<dynamic> _post(String path, Map<String, dynamic> data) => _send(
+      path,
+      () async => _http.post(_uri(path), headers: await _headers(), body: jsonEncode(data)));
+
+  // Jeder Request schickt den Token mit. Bei 401 einmal /api/auth/refresh und den Request
+  // wiederholen, klappt das nicht: Tokens löschen und zurück zum Login.
+  // Für /api/auth/... (Login, Refresh selbst) nicht, dort heißt 401 etwas anderes.
+  Future<dynamic> _send(String path, Future<http.Response> Function() request) async {
+    var res = await request();
+    if (res.statusCode == 401 && !path.startsWith('/api/auth/')) {
+      if (await _refresh()) res = await request();
+      if (res.statusCode == 401) {
+        await _tokens.clear();
+        onSessionExpired?.call();
+      }
     }
     return _decode(res);
   }
 
-  Future<bool> _refresh() async {
-    final token = _refreshToken;
+  Future<bool> _refresh() {
+    return _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+  }
+
+  Future<bool> _doRefresh() async {
+    final token = await _tokens.readRefreshToken();
     if (token == null) return false;
     try {
-      final json = await _post('/api/auth/refresh', {'refreshToken': token});
-      _loggedIn(json as Map<String, dynamic>);
+      await _loggedIn(await _post('/api/auth/refresh', {'refreshToken': token}));
       return true;
     } on ApiException {
-      clearTokens();
       return false;
     }
   }
 
-  Map<String, String> _authHeaders() => {
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      };
+  Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
-  Future<dynamic> _post(String path, Map<String, dynamic> data) async {
-    final res = await _http.post(
-      Uri.parse('$baseUrl$path'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(data),
-    );
-    return _decode(res);
+  Future<Map<String, String>> _headers() async {
+    final token = await _tokens.readAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
   }
 
   // Fehler kommen vom Server immer im gleichen Format (ApiError)
